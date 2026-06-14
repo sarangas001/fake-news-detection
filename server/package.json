@@ -4,7 +4,7 @@
   "description": "",
   "main": "src/server.ts",
   "scripts": {
-    "build": "tsc build",
+    "build": "tsc",
     "start": "node build/server.js",
     "dev": "nodemon --watch src --ext ts,tsx,json --exec \"tsx ./src/server.ts\""
   },
