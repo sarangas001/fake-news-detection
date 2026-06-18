@@ -29,7 +29,7 @@ export class AuthService {
 
         const accessToken = generateAccessToken({ userId:user.id, role:user.role });
 
-        const refreshToken = generateRefreshToken({ userId:user.id });
+        const refreshToken = generateRefreshToken({ userId: user.id, role: user.role });
 
         await this.refreshRepository.createToken({
             userId:user.id,
@@ -52,21 +52,23 @@ export class AuthService {
    async login (data:LoginDTO) {
         const user = await this.userRepository.findByEmail(data.email);
 
-        if(!user)
-            throw new Error(
-              "Invalid email or password"
-        );
+        if(!user) {
+            return {
+                message: "Invalid email or password"
+            };
+        }
 
         const validPassword = await comparePassword(data.password, user.password);
 
-        if(!validPassword)
-            throw new Error(
-              "Invalid email or password"
-        );
+        if(!validPassword) {
+            return {
+                message: "Invalid email or password"
+            };
+        }
 
         const accessToken = generateAccessToken({ userId:user.id, role:user.role });
 
-        const refreshToken = generateRefreshToken({ userId:user.id });
+        const refreshToken = generateRefreshToken({ userId: user.id, role: user.role });
 
         await this.refreshRepository.createToken({
             userId:user.id,
@@ -87,18 +89,27 @@ export class AuthService {
         };
    }
 
-   async refresh( token:string) {
-        const payload = verifyRefreshToken(token);
+   async refresh(token: string) {
+        const payload = verifyRefreshToken(token) as { userId: string };
 
         const storedToken = await this.refreshRepository.findToken(token);
-        
-        // const accessToken = generateAccessToken({ userId:payload.userId, role:payload.role });
 
-        // return {
-        //     accessToken
-        // };
+        if (!storedToken) {
+            throw new Error("Invalid refresh token");
+        }
+
+        const user = await this.userRepository.findById(payload.userId);
+
+        if (!user) {
+            throw new Error("User not found");
+        }
+
+        const accessToken = generateAccessToken({ userId: user.id, role: user.role });
+
+        return {
+            accessToken
+        };
     }
-
   async logout(token: string) {
     await this.refreshRepository.deleteToken(token);
 
@@ -109,3 +120,5 @@ export class AuthService {
   }
 
 }
+
+
