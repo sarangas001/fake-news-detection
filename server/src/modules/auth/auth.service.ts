@@ -12,40 +12,40 @@ export class AuthService {
 
    async register(data: RegisterDTO) {
         
-        // const existingUser = await this.userRepository.findByEmail( data.email);
+        const existingUser = await this.userRepository.findByEmail( data.email);
 
-        // if(existingUser){
-        //     throw new Error(
-        //     "Email already exists"
-        //     );
-        // }
+        if(existingUser){
+            return {
+                message: "Email already in use"
+            };
+        }
 
-        // const hashedPassword =
-        //     await hashPassword(
-        //     data.password
-        // );
+        const hashedPassword =
+            await hashPassword(
+            data.password
+        );
 
-        // const user = await this.userRepository.createUser({ ...data, password: hashedPassword });
+        const user = await this.userRepository.createUser({ ...data, password: hashedPassword });
 
-        // const accessToken = generateAccessToken({ userId:user.id, role:user.role });
+        const accessToken = generateAccessToken({ userId:user.id, role:user.role });
 
-        // const refreshToken = generateRefreshToken({ userId:user.id });
+        const refreshToken = generateRefreshToken({ userId:user.id });
 
-        // await this.refreshRepository.createToken({
-        //     userId:user.id,
-        //     token:refreshToken,
-        //     expiresAt:
-        //     new Date(
-        //         Date.now() +
-        //         30*24*60*60*1000
-        //     )
-        // })
+        await this.refreshRepository.createToken({
+            userId:user.id,
+            token:refreshToken,
+            expiresAt:
+            new Date(
+                Date.now() +
+                30*24*60*60*1000
+            )
+        })
 
-        // return {
-        //     user,
-        //     accessToken,
-        //     refreshToken
-        // };
+        return {
+            user,
+            accessToken,
+            refreshToken
+        };
 
    }
 

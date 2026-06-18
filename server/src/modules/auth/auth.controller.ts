@@ -1,7 +1,7 @@
 import { AuthService } from "./auth.service";
 
 export class authController {
-    private readonly authService: AuthService = new AuthService();
+    private authService: AuthService = new AuthService();
 
     async register( req: any, res: any, next: any) {
 
