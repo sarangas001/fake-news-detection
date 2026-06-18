@@ -1,0 +1,15 @@
+// npm install envalid
+
+// PORT
+
+// MONGODB_URI
+
+// JWT_ACCESS_SECRET
+
+// JWT_REFRESH_SECRET
+
+// REDIS_HOST
+
+// REDIS_PORT
+
+// GEMINI_API_KEY
