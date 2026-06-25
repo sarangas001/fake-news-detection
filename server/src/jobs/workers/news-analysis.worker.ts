@@ -3,6 +3,7 @@ import { NewsAnalysisConstants } from '../../modules/news-analysis/news-analysis
 import { IQueuePayload } from '../../modules/news-analysis/news-analysis.types';
 import { newsAnalysisRepository } from '../../modules/news-analysis/news-analysis.repository';
 import { geminiService } from '../../services/ai/gemini.service';
+import { intelligenceService } from '../../modules/intelligence/intelligence.service';
 
 const redisConfig = {
   host: process.env.REDIS_HOST || 'localhost',
@@ -28,25 +29,30 @@ export const newsAnalysisWorker = new Worker<IQueuePayload>(
       // Determine content to analyze
       let contentToAnalyze = analysis.originalContent;
       if (analysis.contentType === 'URL') {
-        // TODO: Implement URL scraping logic if needed
-        contentToAnalyze = analysis.sourceUrl; 
+        // Fallback if scraping isn't fully implemented
+        contentToAnalyze = analysis.sourceUrl || analysis.originalContent; 
       }
 
       if (!contentToAnalyze) {
         throw new Error('No content available to analyze');
       }
 
-      // 3. Call Gemini API & 4. Parse result
+      // 3. Gemini Analysis (Base Analysis)
       const aiResult = await geminiService.analyzeNews(contentToAnalyze);
 
-      // 5. Save result
+      // 4. Intelligence Service
+      // This internally handles: Fact Checking -> Bias Analysis -> Credibility Engine
+      const intelResult = await intelligenceService.generateReport(analysisId);
+
+      // 5. Save Final Report
       await newsAnalysisRepository.update(analysisId, {
         classification: aiResult.classification,
-        confidenceScore: aiResult.confidenceScore,
-        credibilityScore: aiResult.credibilityScore,
-        riskLevel: aiResult.riskLevel,
         summary: aiResult.summary,
         explanation: aiResult.explanation,
+        // Override the basic Gemini scores with our robust Credibility Engine scores
+        confidenceScore: intelResult.credibilityResult.credibilityScore,
+        credibilityScore: intelResult.credibilityResult.credibilityScore,
+        riskLevel: intelResult.credibilityResult.riskLevel,
       });
 
       // 6. Mark COMPLETED
