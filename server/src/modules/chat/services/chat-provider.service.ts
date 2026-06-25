@@ -8,6 +8,7 @@ export interface ChatResponse {
 export class ChatProviderService {
   private readonly aiService: GeminiService;
   private readonly modelName = 'gemini-1.5-pro';
+  private readonly requestTimeoutMs = 30000; // 30 seconds timeout for Gemini API requests
 
   constructor(aiService: GeminiService = geminiService) {
     this.aiService = aiService;
@@ -22,9 +23,17 @@ export class ChatProviderService {
       throw new Error('Prompt is required.');
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.requestTimeoutMs);
+
     try {
       const model = (this.aiService as any).genAI.getGenerativeModel({ model: this.modelName });
-      const result = await model.generateContent(prompt);
+      
+      const result = await model.generateContent(prompt, {
+        signal: controller.signal,
+        requestOptions: { signal: controller.signal },
+      } as any);
+
       const response = result.response;
       const text = response.text();
 
@@ -41,8 +50,14 @@ export class ChatProviderService {
         tokenUsage,
       };
     } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error(`[Gemini Timeout] sendMessage request exceeded ${this.requestTimeoutMs}ms limit.`);
+        throw new Error(`Gemini request timed out after ${this.requestTimeoutMs / 1000} seconds.`);
+      }
       console.error('Error in ChatProviderService.sendMessage:', error);
       throw new Error(`Failed to send message: ${error.message}`);
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -57,9 +72,16 @@ export class ChatProviderService {
       throw new Error('Prompt is required.');
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.requestTimeoutMs);
+
     try {
       const model = (this.aiService as any).genAI.getGenerativeModel({ model: this.modelName });
-      const result = await model.generateContentStream(prompt);
+      
+      const result = await model.generateContentStream(prompt, {
+        signal: controller.signal,
+        requestOptions: { signal: controller.signal },
+      } as any);
       
       let responseText = '';
       for await (const chunk of result.stream) {
@@ -84,8 +106,14 @@ export class ChatProviderService {
         tokenUsage,
       };
     } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error(`[Gemini Timeout] streamMessage request exceeded ${this.requestTimeoutMs}ms limit.`);
+        throw new Error(`Gemini streaming request timed out after ${this.requestTimeoutMs / 1000} seconds.`);
+      }
       console.error('Error in ChatProviderService.streamMessage:', error);
       throw new Error(`Failed to stream message: ${error.message}`);
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 }

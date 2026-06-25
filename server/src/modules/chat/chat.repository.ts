@@ -24,15 +24,45 @@ export class ChatRepository {
   }
 
   async saveMessage(data: Partial<IChatMessage>): Promise<IChatMessageDocument> {
-    const message = new this.messageModel(data);
-    const saved = await message.save();
+    if (!data.sessionId) {
+      throw new Error('Session ID is required to save a message.');
+    }
 
-    // Update lastMessageAt on the parent session
-    await this.sessionModel.findByIdAndUpdate(data.sessionId, {
-      lastMessageAt: new Date(),
-    });
+    const dbSession = await this.sessionModel.db.startSession();
+    try {
+      let savedMessage: IChatMessageDocument | null = null;
+      
+      await dbSession.withTransaction(async () => {
+        // Validate session first
+        const sessionExists = await this.sessionModel
+          .findById(data.sessionId)
+          .session(dbSession)
+          .exec();
 
-    return saved;
+        if (!sessionExists) {
+          throw new Error(`Parent chat session not found: ${data.sessionId}`);
+        }
+
+        // Perform message insert
+        const message = new this.messageModel(data);
+        savedMessage = await message.save({ session: dbSession });
+
+        // Update lastMessageAt on parent session
+        await this.sessionModel.findByIdAndUpdate(
+          data.sessionId,
+          { lastMessageAt: new Date() },
+          { session: dbSession }
+        ).exec();
+      });
+
+      if (!savedMessage) {
+        throw new Error('Failed to save message within transaction.');
+      }
+
+      return savedMessage;
+    } finally {
+      await dbSession.endSession();
+    }
   }
 
   async getMessages(sessionId: string | Types.ObjectId): Promise<IChatMessageDocument[]> {
@@ -50,11 +80,20 @@ export class ChatRepository {
   }
 
   async deleteSession(sessionId: string | Types.ObjectId): Promise<boolean> {
-    // Delete all messages belonging to the session first
-    await this.messageModel.deleteMany({ sessionId }).exec();
+    const dbSession = await this.sessionModel.db.startSession();
+    try {
+      let isDeleted = false;
+      await dbSession.withTransaction(async () => {
+        // Delete all messages belonging to the session first
+        await this.messageModel.deleteMany({ sessionId }).session(dbSession).exec();
 
-    const result = await this.sessionModel.findByIdAndDelete(sessionId).exec();
-    return result !== null;
+        const result = await this.sessionModel.findByIdAndDelete(sessionId).session(dbSession).exec();
+        isDeleted = result !== null;
+      });
+      return isDeleted;
+    } finally {
+      await dbSession.endSession();
+    }
   }
 }
 

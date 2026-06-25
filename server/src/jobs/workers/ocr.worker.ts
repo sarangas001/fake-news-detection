@@ -45,20 +45,27 @@ export const ocrWorker = new Worker<IOCRQueuePayload>(
         ocrConfidence: ocrResult.confidence,
       });
 
-      // Step 5: Create News Analysis via NewsAnalysisService.createAnalysis()
-      // contentType = OCR, content = extractedText
-      const analysisResponse = await newsAnalysisService.createAnalysis(
-        String(imageRecord.userId),
-        {
-          contentType: NewsAnalysisConstants.CONTENT_TYPES.OCR,
-          content: ocrResult.text,
-        }
-      );
+      // Step 5 & 6: Create News Analysis and link it (if not already done in a previous run)
+      let analysisId = imageRecord.linkedAnalysisId;
 
-      // Step 6: Save returned analysisId into linkedAnalysisId
-      await imageAnalysisRepository.update(imageAnalysisId, {
-        linkedAnalysisId: new Types.ObjectId(analysisResponse.analysisId),
-      });
+      if (!analysisId) {
+        // Create News Analysis via NewsAnalysisService.createAnalysis()
+        // contentType = OCR, content = extractedText
+        const analysisResponse = await newsAnalysisService.createAnalysis(
+          String(imageRecord.userId),
+          {
+            contentType: NewsAnalysisConstants.CONTENT_TYPES.OCR,
+            content: ocrResult.text,
+          }
+        );
+
+        analysisId = new Types.ObjectId(analysisResponse.analysisId);
+
+        // Save returned analysisId into linkedAnalysisId
+        await imageAnalysisRepository.update(imageAnalysisId, {
+          linkedAnalysisId: analysisId,
+        });
+      }
 
       // Step 7: Mark COMPLETED
       await imageAnalysisRepository.updateStatus(imageAnalysisId, ProcessingStatus.COMPLETED);

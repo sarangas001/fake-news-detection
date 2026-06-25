@@ -43,15 +43,36 @@ export class ChatService {
   }
 
   /**
+   * Helper method to verify session ownership and existence.
+   */
+  private async verifySessionOwnership(userId: string, sessionId: string): Promise<void> {
+    const session = await this.chatRepo.findSession(sessionId);
+    if (!session) {
+      throw new Error(`Chat session not found: ${sessionId}`);
+    }
+    if (String(session.userId) !== String(userId)) {
+      throw new Error('Unauthorized: You do not have permission to access this chat session.');
+    }
+  }
+
+  /**
    * Sends a user message, processes it through the Gemini assistant workflow,
    * stores the response, and returns the generated assistant message.
+   * @param userId The ID of the authenticated user.
    * @param sessionId The active chat session ID.
    * @param userMessageContent The content of the user's message.
    */
-  async sendMessage(sessionId: string, userMessageContent: string): Promise<IChatMessageDocument> {
+  async sendMessage(
+    userId: string,
+    sessionId: string,
+    userMessageContent: string
+  ): Promise<IChatMessageDocument> {
     if (!userMessageContent || userMessageContent.trim() === '') {
       throw new Error('Message content cannot be empty.');
     }
+
+    // Validate and authorize session ownership first
+    await this.verifySessionOwnership(userId, sessionId);
 
     // 1. Save user message to database first
     await this.chatRepo.saveMessage({
@@ -87,24 +108,25 @@ export class ChatService {
 
   /**
    * Retrieves all messages belonging to a specific session.
+   * @param userId The ID of the authenticated user.
    * @param sessionId The chat session ID.
    */
-  /**
-   * Retrieves all messages belonging to a specific session.
-   * @param sessionId The chat session ID.
-   */
-  async getMessages(sessionId: string): Promise<IChatMessageDocument[]> {
+  async getMessages(userId: string, sessionId: string): Promise<IChatMessageDocument[]> {
+    // Validate and authorize session ownership first
+    await this.verifySessionOwnership(userId, sessionId);
     return await this.chatRepo.getMessages(sessionId);
   }
 
   /**
    * Streams a chat response token by token, invoking a callback for each chunk,
    * saving both user and assistant messages, and returning the final assistant message.
+   * @param userId The ID of the authenticated user.
    * @param sessionId The active chat session ID.
    * @param userMessageContent The content of the user's message.
    * @param onChunk Callback function executed when a new text chunk is received.
    */
   async streamMessage(
+    userId: string,
     sessionId: string,
     userMessageContent: string,
     onChunk: (chunk: string) => void
@@ -113,12 +135,21 @@ export class ChatService {
       throw new Error('Message content cannot be empty.');
     }
 
-    // 1. Save user message to database first
-    await this.chatRepo.saveMessage({
-      sessionId: new Types.ObjectId(sessionId),
-      role: MessageRole.USER,
-      content: userMessageContent,
-    });
+    // Validate and authorize session ownership first
+    await this.verifySessionOwnership(userId, sessionId);
+
+    // 1. Save user message to database first (only if it's not already the latest message in the session)
+    const existingMessages = await this.chatRepo.getMessages(sessionId);
+    const lastMessage = existingMessages[existingMessages.length - 1];
+    const isAlreadySaved = lastMessage && lastMessage.role === MessageRole.USER && lastMessage.content === userMessageContent;
+
+    if (!isAlreadySaved) {
+      await this.chatRepo.saveMessage({
+        sessionId: new Types.ObjectId(sessionId),
+        role: MessageRole.USER,
+        content: userMessageContent,
+      });
+    }
 
     // 2. Load Context
     const context = await this.contextBuilder.buildContext(sessionId);
@@ -154,9 +185,12 @@ export class ChatService {
 
   /**
    * Deletes a chat session and all of its associated messages.
+   * @param userId The ID of the authenticated user.
    * @param sessionId The chat session ID.
    */
-  async deleteSession(sessionId: string): Promise<boolean> {
+  async deleteSession(userId: string, sessionId: string): Promise<boolean> {
+    // Validate and authorize session ownership first
+    await this.verifySessionOwnership(userId, sessionId);
     return await this.chatRepo.deleteSession(sessionId);
   }
 }

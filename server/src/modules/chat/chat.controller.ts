@@ -38,6 +38,12 @@ export class ChatController {
    */
   async sendMessage(req: Request, res: Response): Promise<void> {
     try {
+      const userId = (req as any).user?._id || (req as any).user?.id;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Unauthorized' });
+        return;
+      }
+
       const { sessionId } = req.params;
       const { message, content } = req.body;
       const messageContent = message || content;
@@ -53,6 +59,7 @@ export class ChatController {
       }
 
       const responseMessage = await chatService.sendMessage(
+        String(userId),
         sessionId as string,
         messageContent
       );
@@ -75,6 +82,12 @@ export class ChatController {
    */
   async getMessages(req: Request, res: Response): Promise<void> {
     try {
+      const userId = (req as any).user?._id || (req as any).user?.id;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Unauthorized' });
+        return;
+      }
+
       const { sessionId } = req.params;
 
       if (!sessionId) {
@@ -82,7 +95,7 @@ export class ChatController {
         return;
       }
 
-      const messages = await chatService.getMessages(sessionId as string);
+      const messages = await chatService.getMessages(String(userId), sessionId as string);
 
       res.status(200).json({
         success: true,
@@ -128,6 +141,12 @@ export class ChatController {
    */
   async deleteSession(req: Request, res: Response): Promise<void> {
     try {
+      const userId = (req as any).user?._id || (req as any).user?.id;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Unauthorized' });
+        return;
+      }
+
       const { sessionId } = req.params;
 
       if (!sessionId) {
@@ -135,7 +154,7 @@ export class ChatController {
         return;
       }
 
-      const deleted = await chatService.deleteSession(sessionId as string);
+      const deleted = await chatService.deleteSession(String(userId), sessionId as string);
 
       if (!deleted) {
         res.status(404).json({ success: false, message: 'Chat session not found' });

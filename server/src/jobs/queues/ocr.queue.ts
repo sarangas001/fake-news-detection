@@ -26,6 +26,7 @@ export const ocrQueue = new Queue<IOCRQueuePayload>(OCR_QUEUE_NAME, {
     },
     removeOnFail: {
       age: 86400, // Keep failed jobs for 24 hours
+      count: 500, // Hard ceiling to prevent Redis memory growth during prolonged failures
     },
   },
 });
