@@ -29,7 +29,13 @@ export class ContextBuilderService {
     }
 
     // Load chat history (chronological)
-    const messages = await this.chatRepo.getMessages(sessionId);
+    let messages = await this.chatRepo.getMessages(sessionId);
+
+    // Bounded slice: Keep only the most recent 20 messages to optimize prompt size and token consumption
+    const MAX_HISTORY_LIMIT = 20;
+    if (messages.length > MAX_HISTORY_LIMIT) {
+      messages = messages.slice(-MAX_HISTORY_LIMIT);
+    }
 
     // Load linked news analysis if one exists on the session
     let analysis: INewsAnalysisDocument | null = null;
