@@ -1,17 +1,11 @@
-export interface CreateNewsAnalysisDTO {
+import { ContentType } from './news-analysis.types';
 
+export interface CreateAnalysisDTO {
+  contentType: ContentType;
   content: string;
-
-  sourceType:
-    | "TEXT"
-    | "ARTICLE"
-    | "IMAGE"
-    | "CHAT";
 }
 
 export interface AnalysisResponseDTO {
-
   analysisId: string;
-
-  status: string;
+  processingStatus: string;
 }
