@@ -26,6 +26,9 @@ router.get('/sessions', chatController.getSessions);
 // GET /sessions/:sessionId/messages - Retrieve all messages in a session
 router.get('/sessions/:sessionId/messages', chatController.getMessages);
 
+// GET /stream - Stream an AI response over SSE
+router.get('/stream', chatStreamController.streamChat);
+
 // DELETE /sessions/:sessionId - Delete a chat session and its messages
 router.delete('/sessions/:sessionId', chatController.deleteSession);
 
