@@ -1,18 +1,12 @@
-import "@/global.css";
-import React from "react";
-import { Stack } from "expo-router";
-import { AuthProvider } from "@/context/AuthContext";
-import { StatusBar } from "expo-status-bar";
-
-export default function RootLayout() {
+import "@/global.css"
+import { Text, View } from "react-native";
+ 
+export default function App() {
   return (
-    <AuthProvider>
-      <StatusBar style="auto" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="analysis/[id]" options={{ presentation: "card", headerShown: false }} />
-      </Stack>
-    </AuthProvider>
+    <View className="flex-1 items-center justify-center bg-white">
+      <Text className="text-4xl font-bold text-blue-500">
+        Welcome to Nativewind!
+      </Text>
+    </View>
   );
 }
