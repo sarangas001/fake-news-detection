@@ -22,5 +22,4 @@ export const NewsAnalysisConstants = {
     FAILED: 'FAILED',
   },
   AI_PROVIDER: 'GEMINI',
-  QUEUE_NAME: 'news-analysis-queue',
 } as const;

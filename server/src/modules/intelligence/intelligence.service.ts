@@ -1,10 +1,10 @@
 import { Types } from 'mongoose';
-import { newsAnalysisService, NewsAnalysisService } from '../news-analysis/news-analysis.service';
 import { claimExtractionService, ClaimExtractionService } from '../fact-check/services/claim-extraction.service';
 import { factCheckService, FactCheckService } from '../fact-check/services/fact-check.service';
 import { biasAnalysisService, BiasAnalysisService } from './services/bias-analysis.service';
 import { credibilityEngineService, CredibilityEngineService } from './services/credibility-engine.service';
 import { factCheckRepository, FactCheckRepository } from '../fact-check/fact-check.repository';
+import { newsAnalysisRepository, NewsAnalysisRepository } from '../news-analysis/news-analysis.repository';
 
 // Mocked SourceAnalysisService for Step 4 until implemented
 export class SourceAnalysisService {
@@ -18,7 +18,7 @@ const defaultSourceAnalysisService = new SourceAnalysisService();
 
 export class IntelligenceService {
   constructor(
-    private readonly newsService: NewsAnalysisService = newsAnalysisService,
+    private readonly newsAnalysisRepo: NewsAnalysisRepository = newsAnalysisRepository,
     private readonly claimExtractor: ClaimExtractionService = claimExtractionService,
     private readonly factChecker: FactCheckService = factCheckService,
     private readonly biasAnalyzer: BiasAnalysisService = biasAnalysisService,
@@ -30,7 +30,7 @@ export class IntelligenceService {
   async generateReport(analysisId: string): Promise<any> {
     try {
       // Fetch the original news content
-      const analysisRecord = await this.newsService.getAnalysis(analysisId);
+      const analysisRecord = await this.newsAnalysisRepo.findById(analysisId);
       
       if (!analysisRecord) {
         throw new Error(`Analysis record not found for id: ${analysisId}`);

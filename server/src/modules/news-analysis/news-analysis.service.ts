@@ -1,8 +1,9 @@
 import { newsAnalysisRepository } from './news-analysis.repository';
 import { CreateAnalysisDTO, AnalysisResponseDTO } from './news-analysis.dto';
-import { newsAnalysisQueue } from '../../queue/news-analysis.queue';
 import { NewsAnalysisConstants } from './news-analysis.constants';
 import { INewsAnalysisDocument } from './news-analysis.types';
+import { geminiService } from '../../services/ai/gemini.service';
+import { intelligenceService } from '../intelligence/intelligence.service';
 
 export class NewsAnalysisService {
   async createAnalysis(userId: string, data: CreateAnalysisDTO): Promise<AnalysisResponseDTO> {
@@ -26,15 +27,49 @@ export class NewsAnalysisService {
       processingStatus: NewsAnalysisConstants.PROCESSING_STATUS.PENDING,
     });
 
-    // 3. Add BullMQ job
-    await newsAnalysisQueue.add('analyze', {
-      analysisId: String(analysisRecord._id),
-    });
+    const analysisId = String(analysisRecord._id);
 
-    // 4. Return analysisId
+    try {
+      await newsAnalysisRepository.updateStatus(
+        analysisId,
+        NewsAnalysisConstants.PROCESSING_STATUS.PROCESSING
+      );
+
+      const contentToAnalyze = sourceUrl || originalContent;
+      if (!contentToAnalyze) {
+        throw new Error('No content available to analyze');
+      }
+
+      const aiResult = await geminiService.analyzeNews(contentToAnalyze);
+      const intelResult = await intelligenceService.generateReport(analysisId);
+
+      await newsAnalysisRepository.update(analysisId, {
+        classification: aiResult.classification,
+        summary: aiResult.summary,
+        explanation: aiResult.explanation,
+        confidenceScore: intelResult.credibilityResult.credibilityScore,
+        credibilityScore: intelResult.credibilityResult.credibilityScore,
+        riskLevel: intelResult.credibilityResult.riskLevel,
+      });
+
+      await newsAnalysisRepository.updateStatus(
+        analysisId,
+        NewsAnalysisConstants.PROCESSING_STATUS.COMPLETED
+      );
+    } catch (error: any) {
+      await newsAnalysisRepository.updateStatus(
+        analysisId,
+        NewsAnalysisConstants.PROCESSING_STATUS.FAILED,
+        error.message
+      );
+
+      throw error;
+    }
+
+    // 3. Return the created analysis
     return {
-      analysisId: String(analysisRecord._id),
-      processingStatus: analysisRecord.processingStatus,
+      analysisId,
+      processingStatus: NewsAnalysisConstants.PROCESSING_STATUS.COMPLETED,
     };
   }
 

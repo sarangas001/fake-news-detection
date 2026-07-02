@@ -20,9 +20,9 @@ export class ImageAnalysisController {
 
       const result = await imageAnalysisService.uploadAndAnalyze(String(userId), file);
 
-      res.status(202).json({
+      res.status(201).json({
         success: true,
-        message: 'Image uploaded and queued for OCR processing',
+        message: 'Image uploaded and processed successfully',
         data: result,
       });
     } catch (error: any) {

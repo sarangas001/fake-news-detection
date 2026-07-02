@@ -1,7 +1,10 @@
 import { IImageAnalysis, ProcessingStatus } from './image-analysis.model';
 import { imageAnalysisRepository, ImageAnalysisRepository } from './image-analysis.repository';
 import { cloudinaryProvider, CloudinaryProvider } from '../../services/storage/cloudinary.provider';
-import { imageAnalysisQueue } from '../../queue/image-analysis.queue';
+import { ocrProvider } from '../../services/ocr/ocr.factory';
+import { newsAnalysisService } from '../news-analysis/news-analysis.service';
+import { NewsAnalysisConstants } from '../news-analysis/news-analysis.constants';
+import { Types } from 'mongoose';
 
 export interface UploadAndAnalyzeResult {
   imageAnalysisId: string;
@@ -57,15 +60,45 @@ export class ImageAnalysisService {
 
     const recordId = String(record._id);
 
-    // Step 4: Create OCR Queue Job
-    await imageAnalysisQueue.add('ocr', {
-      imageAnalysisId: recordId,
-    });
+    try {
+      await this.repository.updateStatus(recordId, ProcessingStatus.PROCESSING);
+
+      const ocrResult = await ocrProvider.extractText(uploadResult.url);
+
+      if (!ocrResult.text || ocrResult.text.trim() === '') {
+        throw new Error('OCR extraction returned empty text.');
+      }
+
+      await this.repository.update(recordId, {
+        extractedText: ocrResult.text,
+        ocrConfidence: ocrResult.confidence,
+      });
+
+      let analysisId = record.linkedAnalysisId;
+
+      if (!analysisId) {
+        const analysisResponse = await newsAnalysisService.createAnalysis(String(userId), {
+          contentType: NewsAnalysisConstants.CONTENT_TYPES.OCR,
+          content: ocrResult.text,
+        });
+
+        analysisId = new Types.ObjectId(analysisResponse.analysisId);
+
+        await this.repository.update(recordId, {
+          linkedAnalysisId: analysisId,
+        });
+      }
+
+      await this.repository.updateStatus(recordId, ProcessingStatus.COMPLETED);
+    } catch (error: any) {
+      await this.repository.updateStatus(recordId, ProcessingStatus.FAILED, error.message);
+      throw error;
+    }
 
     // Step 5: Return ID
     return {
       imageAnalysisId: recordId,
-      processingStatus: ProcessingStatus.PENDING,
+      processingStatus: ProcessingStatus.COMPLETED,
     };
   }
 

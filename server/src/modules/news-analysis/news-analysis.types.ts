@@ -29,10 +29,6 @@ export interface INewsAnalysis {
 
 export interface INewsAnalysisDocument extends INewsAnalysis, Document {}
 
-export interface IQueuePayload {
-  analysisId: string;
-}
-
 export interface IGeminiAnalysisResult {
   classification: ClassificationType;
   confidenceScore: number;
